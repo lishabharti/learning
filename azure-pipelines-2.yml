@@ -1,0 +1,40 @@
+trigger:
+- master  # or your preferred branch
+
+pr: none  # Optional: Disable PR triggers if not needed
+
+pool:
+  vmImage: 'windows-latest'  # Choose a Windows agent image
+
+jobs:
+- job: BuildAndDeploy
+  steps:
+  - script: |
+      # Set Java version
+      choco install adoptopenjdk11 --params "/INSTALLDIR=C:\Java"
+      setx JAVA_HOME "C:\Java\jdk-11.x.x_x"
+      setx PATH "%PATH%;%JAVA_HOME%\bin"
+    displayName: 'Set Java version'
+
+  - script: mvn clean package  # Build the Java project
+    displayName: 'Build Java Function'
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(Build.SourcesDirectory)/target'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/functionApp.zip'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'drop' # Name of the artifact
+
+  - task: AzureFunctionApp@1
+    inputs:
+      azureSubscription: 'Free Trial'
+      appType: 'functionApp'
+      appName: 'pd-audittrial-functionapp'
+      package: '$(Build.ArtifactStagingDirectory)/functionApp.zip'
+      deploymentMethod: 'auto'
